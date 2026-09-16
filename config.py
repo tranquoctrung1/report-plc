@@ -1,5 +1,11 @@
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+USE_SIMULATOR = os.getenv("USE_SIMULATOR", "false").strip().lower() in ("1", "true", "yes")
+
 PLC_IP = os.getenv("PLC_IP", "192.168.111.112")
 PLC_RACK = int(os.getenv("PLC_RACK", "0"))
 PLC_SLOT = int(os.getenv("PLC_SLOT", "1"))

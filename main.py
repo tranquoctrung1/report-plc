@@ -30,6 +30,13 @@ def poll_once(plc: PlcClient, mongo: MongoWriter):
 
 
 def main():
+    if config.USE_SIMULATOR:
+        logger.info("USE_SIMULATOR=true, delegating to simulator")
+        import simulator
+
+        simulator.main()
+        return
+
     plc = PlcClient(config.PLC_IP, config.PLC_RACK, config.PLC_SLOT)
     mongo = MongoWriter(
         config.MONGO_URI, config.MONGO_DB_NAME, config.COLLECTION_TAGS, config.COLLECTION_ALARMS

@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Optional
+
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -25,13 +28,21 @@ def alarms_latest():
 
 
 @app.get("/api/tags/history")
-def tags_history(limit: int = Query(50, ge=1, le=1000)):
-    return db.get_history(db.tags_collection, limit)
+def tags_history(
+    limit: int = Query(50, ge=1, le=1000),
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+):
+    return db.get_history(db.tags_collection, limit, start, end)
 
 
 @app.get("/api/alarms/history")
-def alarms_history(limit: int = Query(50, ge=1, le=1000)):
-    return db.get_history(db.alarms_collection, limit)
+def alarms_history(
+    limit: int = Query(50, ge=1, le=1000),
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+):
+    return db.get_history(db.alarms_collection, limit, start, end)
 
 
 @app.get("/api/config")

@@ -24,6 +24,14 @@ def get_latest(collection) -> dict | None:
     return serialize(doc) if doc else None
 
 
-def get_history(collection, limit: int) -> list[dict]:
-    cursor = collection.find(sort=[("timestamp", DESCENDING)], limit=limit)
+def get_history(collection, limit: int, start=None, end=None) -> list[dict]:
+    query = {}
+    if start or end:
+        ts_filter = {}
+        if start:
+            ts_filter["$gte"] = start
+        if end:
+            ts_filter["$lte"] = end
+        query["timestamp"] = ts_filter
+    cursor = collection.find(query, sort=[("timestamp", DESCENDING)], limit=limit)
     return [serialize(doc) for doc in cursor]

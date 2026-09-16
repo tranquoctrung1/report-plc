@@ -1,41 +1,26 @@
-import { usePolled } from "../hooks";
+import { usePolled, useAuth } from "../hooks";
 import Card from "../components/Card";
+import { formatDateTime } from "../formatDate";
+import { isTagAllowed } from "../auth";
+import { TRIGGER_TAGS, FREQ_TAGS, CIP_TAGS } from "../tags";
 
-const TRIGGER_LABELS = {
-  SS1: "Nạp liệu máy trộn",
-  SS2: "Van Pre1",
-  SS3: "Van Pre2",
-  SS4: "Van Pre3",
-  SS5: "Xả liệu máy trộn",
-  SS6: "Spare",
-  SS7: "SS7",
-  SS8: "SS8",
-};
-
-const FREQ_LABELS = {
-  M02_Hz: "Máy trộn (M02)",
-  M07_Hz: "Làm nguội (M07)",
-  "M5.1_Hz": "Quạt làm nguội M5.1",
-  "M5.2_Hz": "Quạt làm nguội M5.2",
-  "M5.3_Hz": "Quạt làm nguội M5.3",
-  "M5.4_Hz": "Quạt làm nguội M5.4",
-  "M5.5_Hz": "Quạt làm nguội M5.5",
-  "M5.6_Hz": "Quạt làm nguội M5.6",
-  "M5.7_Hz": "Quạt làm nguội M5.7",
-};
+function filterAlarmEntries(alarms, session) {
+  return Object.entries(alarms).filter(
+    ([k]) => k !== "_id" && k !== "timestamp" && isTagAllowed(session, k)
+  );
+}
 
 const FREQ_MAX = 50;
 
 function formatTime(iso) {
   if (!iso) return "--";
-  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
-  return d.toLocaleTimeString("vi-VN", { hour12: false });
+  return formatDateTime(iso);
 }
 
-function TriggerGrid({ tags }) {
+function TriggerGrid({ tags, entries }) {
   return (
     <div className="pill-grid">
-      {Object.entries(TRIGGER_LABELS).map(([key, label]) => {
+      {entries.map(({ key, label }) => {
         const on = Boolean(tags[key]);
         return (
           <div key={key} className={`pill ${on ? "pill-on" : "pill-off"}`}>
@@ -61,34 +46,89 @@ function FreqBar({ label, value }) {
   );
 }
 
-function CipStatus({ tags }) {
+function SystemStatus({ tags, pollIntervalSeconds }) {
+  let online = false;
+  let secondsAgo = null;
+  if (tags?.timestamp && pollIntervalSeconds) {
+    const ts = new Date(tags.timestamp.endsWith("Z") ? tags.timestamp : tags.timestamp + "Z");
+    secondsAgo = Math.round((Date.now() - ts.getTime()) / 1000);
+    online = secondsAgo <= pollIntervalSeconds * 2;
+  }
+
   return (
     <div className="stat-row">
       <div className="stat">
-        <div className="stat-label">Trạng thái</div>
-        <div className={`stat-value ${tags.Tig_CIP ? "stat-good" : ""}`}>
-          {tags.Tig_CIP ? "Đang vệ sinh" : "Nghỉ"}
+        <div className="stat-label">Kết nối PLC</div>
+        <div className="stat-value">
+          <span className={`status-pill ${online ? "status-online" : "status-offline"}`}>
+            {online ? "Online" : "Offline"}
+          </span>
         </div>
       </div>
       <div className="stat">
-        <div className="stat-label">Nhiệt độ bồn nóng</div>
-        <div className="stat-value">{tags.Temp_PV?.toFixed(1)} °C</div>
+        <div className="stat-label">Cập nhật gần nhất</div>
+        <div className="stat-value">{formatTime(tags?.timestamp)}</div>
       </div>
       <div className="stat">
-        <div className="stat-label">Thời gian CIP</div>
-        <div className="stat-value">{tags.Time_PV?.toFixed(0)} s</div>
-      </div>
-      <div className="stat">
-        <div className="stat-label">Số mẻ sản xuất</div>
-        <div className="stat-value">{tags.ID_RCP}</div>
+        <div className="stat-label">Cách đây</div>
+        <div className="stat-value">{secondsAgo !== null ? `${secondsAgo}s` : "—"}</div>
       </div>
     </div>
   );
 }
 
-function AlarmPanel({ alarms }) {
-  const entries = Object.entries(alarms).filter(([k]) => k !== "_id" && k !== "timestamp");
+function CipStat({ tagKey, label, tags }) {
+  if (tagKey === "Tig_CIP") {
+    return (
+      <div className="stat">
+        <div className="stat-label">{label}</div>
+        <div className={`stat-value ${tags.Tig_CIP ? "stat-good" : ""}`}>
+          {tags.Tig_CIP ? "Đang vệ sinh" : "Nghỉ"}
+        </div>
+      </div>
+    );
+  }
+  if (tagKey === "Temp_PV") {
+    return (
+      <div className="stat">
+        <div className="stat-label">{label}</div>
+        <div className="stat-value">{tags.Temp_PV?.toFixed(1)} °C</div>
+      </div>
+    );
+  }
+  if (tagKey === "Time_PV") {
+    return (
+      <div className="stat">
+        <div className="stat-label">{label}</div>
+        <div className="stat-value">{tags.Time_PV?.toFixed(0)} s</div>
+      </div>
+    );
+  }
+  return (
+    <div className="stat">
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{tags.ID_RCP}</div>
+    </div>
+  );
+}
+
+function CipStatus({ tags, entries }) {
+  return (
+    <div className="stat-row">
+      {entries.map(({ key, label }) => (
+        <CipStat key={key} tagKey={key} label={label} tags={tags} />
+      ))}
+    </div>
+  );
+}
+
+function AlarmPanel({ alarms, session }) {
+  const entries = filterAlarmEntries(alarms, session);
   const active = entries.filter(([, v]) => v);
+
+  if (entries.length === 0) {
+    return <p className="loading">Tài khoản của bạn chưa được phân quyền xem cảnh báo nào.</p>;
+  }
 
   return (
     <>
@@ -113,8 +153,13 @@ function AlarmPanel({ alarms }) {
 export default function Dashboard() {
   const { data: tags, error: tagsError } = usePolled("/tags/latest");
   const { data: alarms, error: alarmsError } = usePolled("/alarms/latest");
+  const { data: cfg } = usePolled("/config", 15000);
+  const session = useAuth();
 
   const loading = !tags || !alarms;
+  const visibleTriggers = TRIGGER_TAGS.filter(({ key }) => isTagAllowed(session, key));
+  const visibleFreq = FREQ_TAGS.filter(({ key }) => isTagAllowed(session, key));
+  const visibleCip = CIP_TAGS.filter(({ key }) => isTagAllowed(session, key));
 
   return (
     <div className="page">
@@ -137,27 +182,37 @@ export default function Dashboard() {
 
       {tags && (
         <>
-          <Card title="Tín hiệu điều khiển">
-            <TriggerGrid tags={tags} />
+          <Card title="Trạng thái hệ thống">
+            <SystemStatus tags={tags} pollIntervalSeconds={cfg?.poll_interval_seconds} />
           </Card>
 
-          <Card title="Tần số biến tần">
-            <div className="freq-list">
-              {Object.entries(FREQ_LABELS).map(([key, label]) => (
-                <FreqBar key={key} label={label} value={tags[key]} />
-              ))}
-            </div>
-          </Card>
+          {visibleTriggers.length > 0 && (
+            <Card title="Tín hiệu điều khiển">
+              <TriggerGrid tags={tags} entries={visibleTriggers} />
+            </Card>
+          )}
 
-          <Card title="CIP - Vệ sinh hệ thống">
-            <CipStatus tags={tags} />
-          </Card>
+          {visibleFreq.length > 0 && (
+            <Card title="Tần số biến tần">
+              <div className="freq-list">
+                {visibleFreq.map(({ key, label }) => (
+                  <FreqBar key={key} label={label} value={tags[key]} />
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {visibleCip.length > 0 && (
+            <Card title="CIP - Vệ sinh hệ thống">
+              <CipStatus tags={tags} entries={visibleCip} />
+            </Card>
+          )}
         </>
       )}
 
       {alarms && (
         <Card title="Cảnh báo" className="card-alarms">
-          <AlarmPanel alarms={alarms} />
+          <AlarmPanel alarms={alarms} session={session} />
         </Card>
       )}
     </div>
