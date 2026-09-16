@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+import config
 from api import db
 
 app = FastAPI(title="report-plc API")
@@ -31,3 +32,16 @@ def tags_history(limit: int = Query(50, ge=1, le=1000)):
 @app.get("/api/alarms/history")
 def alarms_history(limit: int = Query(50, ge=1, le=1000)):
     return db.get_history(db.alarms_collection, limit)
+
+
+@app.get("/api/config")
+def get_config():
+    return {
+        "plc_ip": config.PLC_IP,
+        "plc_rack": config.PLC_RACK,
+        "plc_slot": config.PLC_SLOT,
+        "db_number": config.DB_NUMBER,
+        "poll_interval_seconds": config.POLL_INTERVAL_SECONDS,
+        "mongo_db_name": config.MONGO_DB_NAME,
+        "collections": {"tags": config.COLLECTION_TAGS, "alarms": config.COLLECTION_ALARMS},
+    }
