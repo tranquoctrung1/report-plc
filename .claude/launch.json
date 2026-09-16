@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "api",
-      "runtimeExecutable": "venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "api.main:app", "--port", "8000"],
+      "runtimeExecutable": "server/venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "api.main:app", "--port", "8000", "--app-dir", "server"],
       "port": 8000
     },
     {
