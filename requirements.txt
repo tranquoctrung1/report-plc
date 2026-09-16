@@ -1,0 +1,4 @@
+python-snap7
+pymongo
+fastapi
+uvicorn[standard]
